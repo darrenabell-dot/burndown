@@ -22,18 +22,18 @@
     .dash-line { stroke: #48484a; stroke-dasharray: 4,4; stroke-width: 1.5; fill: none; }
     .target-bubble { fill: none; stroke: #ff375f; stroke-width: 2; }
 
-    /* Debt Free Banner Callout */
+    /* Milestone Callout */
     .milestone-banner { background: #121513; border: 1px solid #1c2b20; border-radius: 14px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
     .milestone-title { color: #30d158; font-size: 0.9rem; font-weight: 600; }
     .milestone-date { font-size: 1.15rem; font-weight: 700; text-align: right; }
     .milestone-sub { font-size: 0.75rem; color: #30d158; font-weight: 500; margin-top: 2px; }
 
-    /* Strategy Pill Switcher */
+    /* Strategy Switcher */
     .pill-nav { display: flex; background: #1c1c1e; border-radius: 10px; padding: 3px; gap: 4px; margin-bottom: 16px; }
-    .pill { flex: 1; padding: 8px 4px; text-align: center; border: none; background: transparent; color: #8e8e93; font-weight: 600; font-size: 0.75rem; border-radius: 8px; cursor: pointer; }
+    .pill { flex: 1; padding: 8px 4px; text-align: center; border: none; background: transparent; color: #8e8e93; font-weight: 600; font-size: 0.75rem; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
     .pill.active { background: #2c2c2e; color: #ffffff; }
 
-    /* Accelerator Input */
+    /* Turbo Accelerator */
     .turbo-box { background: #1c1c1e; border-radius: 12px; padding: 12px 14px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; }
     .turbo-label { font-size: 0.8rem; color: #aeaeb2; }
     .turbo-input { width: 90px; text-align: right; background: #000; border: 1px solid #3a3a3c; border-radius: 8px; color: #30d158; font-weight: 700; font-size: 1rem; padding: 6px 8px; }
@@ -53,10 +53,7 @@
     .acc-bi-pay { font-size: 0.8rem; font-weight: 700; color: #30d158; margin-top: 3px; }
     .del-btn { background: none; border: none; color: #ff453a; font-size: 1.2rem; cursor: pointer; padding: 6px 8px; }
 
-    /* Empty State */
     .empty-state { text-align: center; color: #636366; padding: 24px; font-size: 0.85rem; border: 1px dashed #2c2c2e; border-radius: 12px; }
-
-    /* 60-Day Notice */
     .update-due { border: 1px solid #ff9f0a; }
     .update-chip { font-size: 0.65rem; color: #ff9f0a; font-weight: bold; background: rgba(255,159,10,0.15); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px; }
 
@@ -108,15 +105,15 @@
 
   <!-- Strategy Selector -->
   <div class="pill-nav">
-    <button id="p-snow" class="pill active" onclick="setMode('snowball')">Snowball</button>
-    <button id="p-ava" class="pill" onclick="setMode('avalanche')">Avalanche</button>
+    <button id="p-snow" class="pill active" onclick="setMode('snowball')">❄️ Snowball (Lowest Balance)</button>
+    <button id="p-ava" class="pill" onclick="setMode('avalanche')">🏔️ Avalanche (Highest APR)</button>
   </div>
 
   <!-- Turbo Accelerator -->
   <div class="turbo-box">
     <div>
       <div class="turbo-label">Extra Monthly Accelerator ($)</div>
-      <small style="color:#636366;" id="turboSub">+ $0.00 every 2 days to #1</small>
+      <small style="color:#636366;" id="turboSub">+ $0.00 every 2 days to Priority #1</small>
     </div>
     <input type="number" class="turbo-input" id="turboBudget" value="150" oninput="render()">
   </div>
@@ -139,8 +136,8 @@
     const COLORS = ['#ff9f0a', '#30d158', '#0a84ff', '#bf5af2', '#ffd60a', '#ff375f'];
     let mode = 'snowball';
 
-    // Loads strictly from your phone's memory. Starts 100% blank.
-    let debts = JSON.parse(localStorage.getItem('monarch_debts_v2')) || [];
+    // Local device storage
+    let debts = JSON.parse(localStorage.getItem('monarch_debts_v4')) || [];
 
     function setMode(m) {
       mode = m;
@@ -150,15 +147,28 @@
     }
 
     function addDebt() {
-      const name = document.getElementById('name').value;
+      const name = document.getElementById('name').value.trim();
       const balance = parseFloat(document.getElementById('balance').value);
       const apr = parseFloat(document.getElementById('apr').value) || 0;
       const min = parseFloat(document.getElementById('min').value);
-      if (!name || isNaN(balance) || isNaN(min)) return;
+      
+      if (!name || isNaN(balance) || isNaN(min)) {
+        alert('Please enter a valid Name, Balance, and Minimum Payment.');
+        return;
+      }
 
       const color = COLORS[debts.length % COLORS.length];
-      debts.push({ id: Date.now(), name, balance, apr, min, color, lastUpdated: Date.now() });
-      localStorage.setItem('monarch_debts_v2', JSON.stringify(debts));
+      debts.push({ 
+        id: Date.now(), 
+        name: name, 
+        balance: Number(balance), 
+        apr: Number(apr), 
+        min: Number(min), 
+        color: color, 
+        lastUpdated: Date.now() 
+      });
+      
+      localStorage.setItem('monarch_debts_v4', JSON.stringify(debts));
       
       document.getElementById('name').value = '';
       document.getElementById('balance').value = '';
@@ -171,7 +181,7 @@
       e.stopPropagation();
       if (confirm('Delete this account from your paydown plan?')) {
         debts = debts.filter(d => d.id !== id);
-        localStorage.setItem('monarch_debts_v2', JSON.stringify(debts));
+        localStorage.setItem('monarch_debts_v4', JSON.stringify(debts));
         render();
       }
     }
@@ -183,12 +193,13 @@
         if (item) {
           item.balance = parseFloat(val);
           item.lastUpdated = Date.now();
-          localStorage.setItem('monarch_debts_v2', JSON.stringify(debts));
+          localStorage.setItem('monarch_debts_v4', JSON.stringify(debts));
           render();
         }
       }
     }
 
+    // Exact bi-daily amortization
     function calcMonths(bal, apr, biPay) {
       if (bal <= 0) return 0;
       const r = (apr / 100) / 182.5;
@@ -202,8 +213,16 @@
       const extraBi = extraMonthly / 15;
       document.getElementById('turboSub').innerText = `+ $${extraBi.toFixed(2)} every 2 days to Priority #1`;
 
-      if (mode === 'snowball') debts.sort((a,b) => a.balance - b.balance);
-      else debts.sort((a,b) => b.apr - a.apr);
+      // STRICT NUMERIC SORTING:
+      // Snowball: lowest balance first. Tie breaker: higher APR.
+      // Avalanche: highest APR first. Tie breaker: lower balance.
+      debts.sort((a, b) => {
+        if (mode === 'snowball') {
+          return (Number(a.balance) - Number(b.balance)) || (Number(b.apr) - Number(a.apr));
+        } else {
+          return (Number(b.apr) - Number(a.apr)) || (Number(a.balance) - Number(b.balance));
+        }
+      });
 
       let totalBal = 0;
       let totalEstInterest = 0;
@@ -214,23 +233,23 @@
       list.innerHTML = '';
 
       if (debts.length === 0) {
-        list.innerHTML = '<div class="empty-state">No debts added yet.<br>Use the form below to add your first account.</div>';
+        list.innerHTML = '<div class="empty-state">No debts added yet.<br>Add your truck or other loans below to build your schedule.</div>';
       }
 
       debts.forEach((d, idx) => {
-        totalBal += d.balance;
+        totalBal += Number(d.balance);
         const isTop = idx === 0;
-        const baseBi = d.min / 15;
+        const baseBi = Number(d.min) / 15;
         const totalBi = isTop ? baseBi + extraBi : baseBi;
 
-        const monthsWithTurbo = calcMonths(d.balance, d.apr, totalBi);
-        const monthsBaseline = calcMonths(d.balance, d.apr, baseBi);
+        const monthsWithTurbo = calcMonths(Number(d.balance), Number(d.apr), totalBi);
+        const monthsBaseline = calcMonths(Number(d.balance), Number(d.apr), baseBi);
 
         if (monthsWithTurbo > maxMonths) maxMonths = monthsWithTurbo;
         if (monthsBaseline > baselineMaxMonths) baselineMaxMonths = monthsBaseline;
 
         const totalPaid = monthsWithTurbo * 15 * totalBi;
-        if (totalPaid > d.balance) totalEstInterest += (totalPaid - d.balance);
+        if (totalPaid > Number(d.balance)) totalEstInterest += (totalPaid - Number(d.balance));
 
         const daysOld = (Date.now() - (d.lastUpdated || 0)) / (1000 * 60 * 60 * 24);
         const needsUpdate = daysOld > 60;
@@ -240,14 +259,14 @@
             <div class="acc-left">
               <div class="dot" style="background: ${d.color};"></div>
               <div>
-                <div class="acc-name">${d.name} ${isTop ? '🎯' : ''}</div>
+                <div class="acc-name">${idx + 1}. ${d.name} ${isTop ? '🎯 [TARGET]' : ''}</div>
                 <div class="acc-sub">${d.apr}% APR • ${monthsWithTurbo} mos left</div>
                 ${needsUpdate ? '<div class="update-chip">⚠️ 60-Day Balance Check Due</div>' : ''}
               </div>
             </div>
             <div class="acc-right">
               <div>
-                <div class="acc-bal">$${d.balance.toLocaleString()}</div>
+                <div class="acc-bal">$${Number(d.balance).toLocaleString()}</div>
                 <div class="acc-bi-pay">$${totalBi.toFixed(2)} / 2 days</div>
               </div>
               <button class="del-btn" onclick="deleteDebt(event, ${d.id})">✕</button>
@@ -256,7 +275,7 @@
         `;
       });
 
-      // Update Top Stats
+      // Top Stats
       document.getElementById('totalPrincipal').innerText = '$' + Math.round(totalBal).toLocaleString();
       document.getElementById('totalInterest').innerText = '$' + Math.round(totalEstInterest).toLocaleString();
 
@@ -264,7 +283,7 @@
       document.getElementById('axisMax').innerText = '$' + Math.round(totalBal / 1000) + 'K';
       document.getElementById('axisMid').innerText = '$' + Math.round((totalBal / 2) / 1000) + 'K';
 
-      // Date Targets
+      // Debt Free Date
       if (debts.length > 0 && maxMonths > 0) {
         const payoffDate = new Date();
         payoffDate.setDate(payoffDate.getDate() + (maxMonths * 30.4));
@@ -278,7 +297,7 @@
         document.getElementById('earlyPill').innerText = 'Add your accounts below to project';
       }
 
-      // Draw Curves in SVG
+      // Graph Curves
       const curveGroup = document.getElementById('curveGroup');
       curveGroup.innerHTML = '';
 
@@ -286,7 +305,7 @@
         curveGroup.innerHTML += `<path d="M 0 10 Q 150 40, 280 120" class="dash-line"/>`;
         debts.forEach((d, i) => {
           const startY = 15 + (i * 20);
-          const endX = Math.min(280, Math.max(40, (calcMonths(d.balance, d.apr, d.min / 15) / (baselineMaxMonths || 1)) * 280));
+          const endX = Math.min(280, Math.max(40, (calcMonths(Number(d.balance), Number(d.apr), Number(d.min) / 15) / (baselineMaxMonths || 1)) * 280));
           curveGroup.innerHTML += `
             <path d="M 0 ${startY} Q ${endX * 0.6} ${startY + 10}, ${endX} 120" 
                   fill="none" stroke="${d.color}" stroke-width="2.5" stroke-linecap="round"/>
