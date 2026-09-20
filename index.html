@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Debt Paydown</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background: #000000; color: #ffffff; margin: 0; padding: 18px 16px 40px; }
+
+    /* Top Stats */
+    .header-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .stat-label { color: #8e8e93; font-size: 0.8rem; font-weight: 500; margin-bottom: 2px; }
+    .stat-val { font-size: 1.65rem; font-weight: 700; letter-spacing: -0.5px; }
+    .stat-right { text-align: right; }
+
+    /* Trajectory Graph */
+    .chart-container { position: relative; width: 100%; height: 160px; margin: 10px 0 16px; }
+    .chart-axis { position: absolute; left: 0; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: space-between; font-size: 0.65rem; color: #636366; }
+    svg.paydown-chart { width: 100%; height: 100%; padding-left: 32px; overflow: visible; }
+    .grid-line { stroke: #1c1c1e; stroke-width: 1; }
+    .dash-line { stroke: #48484a; stroke-dasharray: 4,4; stroke-width: 1.5; fill: none; }
+    .target-bubble { fill: none; stroke: #ff375f; stroke-width: 2; }
+
+    /* Debt Free Banner Callout */
+    .milestone-banner { background: #121513; border: 1px solid #1c2b20; border-radius: 14px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+    .milestone-title { color: #30d158; font-size: 0.9rem; font-weight: 600; }
+    .milestone-date { font-size: 1.15rem; font-weight: 700; text-align: right; }
+    .milestone-sub { font-size: 0.75rem; color: #30d158; font-weight: 500; margin-top: 2px; }
+
+    /* Strategy Pill Switcher */
+    .pill-nav { display: flex; background: #1c1c1e; border-radius: 10px; padding: 3px; gap: 4px; margin-bottom: 16px; }
+    .pill { flex: 1; padding: 8px 4px; text-align: center; border: none; background: transparent; color: #8e8e93; font-weight: 600; font-size: 0.75rem; border-radius: 8px; cursor: pointer; }
+    .pill.active { background: #2c2c2e; color: #ffffff; }
+
+    /* Accelerator Input */
+    .turbo-box { background: #1c1c1e; border-radius: 12px; padding: 12px 14px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; }
+    .turbo-label { font-size: 0.8rem; color: #aeaeb2; }
+    .turbo-input { width: 90px; text-align: right; background: #000; border: 1px solid #3a3a3c; border-radius: 8px; color: #30d158; font-weight: 700; font-size: 1rem; padding: 6px 8px; }
+
+    /* Section Titles */
+    .section-head { color: #8e8e93; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin: 18px 0 8px 4px; }
+
+    /* Account Rows */
+    .account-row { background: #1c1c1e; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+    .acc-left { display: flex; align-items: center; gap: 12px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .acc-name { font-size: 0.95rem; font-weight: 600; margin-bottom: 3px; }
+    .acc-sub { font-size: 0.75rem; color: #8e8e93; }
+
+    .acc-right { text-align: right; }
+    .acc-bal { font-size: 1.05rem; font-weight: 700; }
+    .acc-bi-pay { font-size: 0.8rem; font-weight: 700; color: #30d158; margin-top: 3px; }
+
+    /* 60-Day Notice */
+    .update-due { border: 1px solid #ff9f0a; }
+    .update-chip { font-size: 0.65rem; color: #ff9f0a; font-weight: bold; background: rgba(255,159,10,0.15); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px; }
+
+    /* Add Account Form */
+    .form-card { background: #121214; border: 1px solid #242426; border-radius: 16px; padding: 16px; margin-top: 24px; }
+    .form-input { width: 100%; background: #1c1c1e; border: 1px solid #2c2c2e; border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 0.9rem; margin-bottom: 10px; }
+    .btn-add { width: 100%; background: #ffffff; color: #000000; border: none; border-radius: 10px; padding: 12px; font-weight: 700; font-size: 0.9rem; cursor: pointer; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+  <!-- Top Headers (Monarch / Copilot Style) -->
+  <div class="header-row">
+    <div>
+      <div class="stat-label">Current Debt Principal</div>
+      <div class="stat-val" id="totalPrincipal">$0</div>
+    </div>
+    <div class="stat-right">
+      <div class="stat-label">Projected Interest</div>
+      <div class="stat-val" id="totalInterest" style="color:#ff453a;">$0</div>
+    </div>
+  </div>
+
+  <!-- Dynamic Paydown SVG Curve -->
+  <div class="chart-container">
+    <div class="chart-axis">
+      <span id="axisMax">$45K</span>
+      <span id="axisMid">$25K</span>
+      <span>$0</span>
+    </div>
+    <svg class="paydown-chart" id="chartSvg" viewBox="0 0 300 120" preserveAspectRatio="none">
+      <line x1="0" y1="0" x2="300" y2="0" class="grid-line"/>
+      <line x1="0" y1="60" x2="300" y2="60" class="grid-line"/>
+      <line x1="0" y1="120" x2="300" y2="120" class="grid-line"/>
+      <!-- Trajectory curves injected via JS -->
+      <g id="curveGroup"></g>
+    </svg>
+  </div>
+
+  <!-- Milestone Callout -->
+  <div class="milestone-banner">
+    <div>
+      <div class="milestone-title">Debt Free Date</div>
+      <div class="milestone-sub" id="earlyPill">Calculating acceleration...</div>
+    </div>
+    <div>
+      <div class="milestone-date" id="targetDateVal">---</div>
+    </div>
+  </div>
+
+  <!-- Strategy Selector -->
+  <div class="pill-nav">
+    <button id="p-snow" class="pill active" onclick="setMode('snowball')">Snowball</button>
+    <button id="p-ava" class="pill" onclick="setMode('avalanche')">Avalanche</button>
+  </div>
+
+  <!-- Turbo Accelerator -->
+  <div class="turbo-box">
+    <div>
+      <div class="turbo-label">Extra Monthly Accelerator ($)</div>
+      <small style="color:#636366;" id="turboSub">+ $0.00 every 2 days to #1</small>
+    </div>
+    <input type="number" class="turbo-input" id="turboBudget" value="150" oninput="render()">
+  </div>
+
+  <!-- Accounts List -->
+  <div class="section-head">Accounts & Bi-Daily Splits</div>
+  <div id="accountsList"></div>
+
+  <!-- Quick Add Drawer -->
+  <div class="form-card">
+    <div class="acc-name" style="margin-bottom: 12px;">+ Add New Debt</div>
+    <input type="text" class="form-input" id="name" placeholder="Account Name (e.g. Truck, Visa)">
+    <input type="number" class="form-input" id="balance" placeholder="Starting Balance ($)">
+    <input type="number" class="form-input" id="apr" placeholder="APR (%)">
+    <input type="number" class="form-input" id="min" placeholder="Monthly Minimum ($)">
+    <button class="btn-add" onclick="addDebt()">Add Account</button>
+  </div>
+
+  <script>
+    const COLORS = ['#ff9f0a', '#30d158', '#0a84ff', '#bf5af2', '#ffd60a'];
+    let mode = 'snowball';
+
+    let debts = JSON.parse(localStorage.getItem('monarch_debts')) || [
+      { id: 1, name: 'Student Loan', balance: 18432, apr: 7.75, min: 280, color: '#ff9f0a', lastUpdated: Date.now() },
+      { id: 2, name: 'Truck Loan', balance: 20634, apr: 5.75, min: 460, color: '#30d158', lastUpdated: Date.now() },
+      { id: 3, name: 'Sapphire Preferred', balance: 6214, apr: 21.49, min: 145, color: '#0a84ff', lastUpdated: Date.now() }
+    ];
+
+    function setMode(m) {
+      mode = m;
+      document.getElementById('p-snow').className = 'pill ' + (m === 'snowball' ? 'active' : '');
+      document.getElementById('p-ava').className = 'pill ' + (m === 'avalanche' ? 'active' : '');
+      render();
+    }
+
+    function addDebt() {
+      const name = document.getElementById('name').value;
+      const balance = parseFloat(document.getElementById('balance').value);
+      const apr = parseFloat(document.getElementById('apr').value) || 0;
+      const min = parseFloat(document.getElementById('min').value);
+      if (!name || !balance || !min) return;
+
+      const color = COLORS[debts.length % COLORS.length];
+      debts.push({ id: Date.now(), name, balance, apr, min, color, lastUpdated: Date.now() });
+      localStorage.setItem('monarch_debts', JSON.stringify(debts));
+      
+      document.getElementById('name').value = '';
+      document.getElementById('balance').value = '';
+      document.getElementById('apr').value = '';
+      document.getElementById('min').value = '';
+      render();
+    }
+
+    function updateBal(id) {
+      const val = prompt('Enter updated balance from your bank:');
+      if (val !== null && val !== '') {
+        const item = debts.find(d => d.id === id);
+        if (item) {
+          item.balance = parseFloat(val);
+          item.lastUpdated = Date.now();
+          localStorage.setItem('monarch_debts', JSON.stringify(debts));
+          render();
+        }
+      }
+    }
+
+    function calcMonths(bal, apr, biPay) {
+      if (bal <= 0) return 0;
+      const r = (apr / 100) / 182.5;
+      if (r * bal >= biPay) return 999;
+      const n = -Math.log(1 - (r * bal) / biPay) / Math.log(1 + r);
+      return Math.ceil((n * 2) / 30.4);
+    }
+
+    function render() {
+      const extraMonthly = parseFloat(document.getElementById('turboBudget').value) || 0;
+      const extraBi = extraMonthly / 15;
+      document.getElementById('turboSub').innerText = `+ $${extraBi.toFixed(2)} every 2 days to Priority #1`;
+
+      if (mode === 'snowball') debts.sort((a,b) => a.balance - b.balance);
+      else debts.sort((a,b) => b.apr - a.apr);
+
+      let totalBal = 0;
+      let totalEstInterest = 0;
+      let maxMonths = 0;
+      let baselineMaxMonths = 0;
+
+      const list = document.getElementById('accountsList');
+      list.innerHTML = '';
+
+      debts.forEach((d, idx) => {
+        totalBal += d.balance;
+        const isTop = idx === 0;
+        const baseBi = d.min / 15;
+        const totalBi = isTop ? baseBi + extraBi : baseBi;
+
+        const monthsWithTurbo = calcMonths(d.balance, d.apr, totalBi);
+        const monthsBaseline = calcMonths(d.balance, d.apr, baseBi);
+
+        if (monthsWithTurbo > maxMonths) maxMonths = monthsWithTurbo;
+        if (monthsBaseline > baselineMaxMonths) baselineMaxMonths = monthsBaseline;
+
+        // Estimated remaining interest
+        const totalPaid = monthsWithTurbo * 15 * totalBi;
+        if (totalPaid > d.balance) totalEstInterest += (totalPaid - d.balance);
+
+        const daysOld = (Date.now() - (d.lastUpdated || 0)) / (1000 * 60 * 60 * 24);
+        const needsUpdate = daysOld > 60;
+
+        list.innerHTML += `
+          <div class="account-row ${needsUpdate ? 'update-due' : ''}" onclick="updateBal(${d.id})">
+            <div class="acc-left">
+              <div class="dot" style="background: ${d.color};"></div>
+              <div>
+                <div class="acc-name">${d.name} ${isTop ? '🎯' : ''}</div>
+                <div class="acc-sub">${d.apr}% APR • ${monthsWithTurbo} mos left</div>
+                ${needsUpdate ? '<div class="update-chip">⚠️ 60-Day Balance Check Due</div>' : ''}
+              </div>
+            </div>
+            <div class="acc-right">
+              <div class="acc-bal">$${d.balance.toLocaleString()}</div>
+              <div class="acc-bi-pay">$${totalBi.toFixed(2)} / 2 days</div>
+            </div>
+          </div>
+        `;
+      });
+
+      // Update Top Stats
+      document.getElementById('totalPrincipal').innerText = '$' + Math.round(totalBal).toLocaleString();
+      document.getElementById('totalInterest').innerText = '$' + Math.round(totalEstInterest).toLocaleString();
+
+      // Axis labels
+      document.getElementById('axisMax').innerText = '$' + Math.round(totalBal / 1000) + 'K';
+      document.getElementById('axisMid').innerText = '$' + Math.round((totalBal / 2) / 1000) + 'K';
+
+      // Date Targets
+      const payoffDate = new Date();
+      payoffDate.setDate(payoffDate.getDate() + (maxMonths * 30.4));
+      document.getElementById('targetDateVal').innerText = payoffDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
+      const diffMonths = Math.max(0, baselineMaxMonths - maxMonths);
+      const diffYears = (diffMonths / 12).toFixed(1);
+      document.getElementById('earlyPill').innerText = diffMonths > 0 ? `${diffYears} years earlier than minimums` : 'Accelerate by adding extra above';
+
+      // Draw Curves in SVG
+      const curveGroup = document.getElementById('curveGroup');
+      curveGroup.innerHTML = '';
+
+      // Baseline trajectory (dashed gray curve)
+      curveGroup.innerHTML += `
+        <path d="M 0 10 Q 150 40, 280 120" class="dash-line"/>
+      `;
+
+      // Draw colored payoff sweep for each debt
+      debts.forEach((d, i) => {
+        const startY = 15 + (i * 28);
+        const endX = Math.min(280, Math.max(40, (calcMonths(d.balance, d.apr, d.min / 15) / (baselineMaxMonths || 1)) * 280));
+        curveGroup.innerHTML += `
+          <path d="M 0 ${startY} Q ${endX * 0.6} ${startY + 10}, ${endX} 120" 
+                fill="none" stroke="${d.color}" stroke-width="2.5" stroke-linecap="round"/>
+        `;
+      });
+
+      // Target bullseye marker at earliest payoff
+      curveGroup.innerHTML += `
+        <circle cx="95" cy="115" r="5" fill="#ff375f"/>
+        <circle cx="95" cy="115" r="9" class="target-bubble"/>
+      `;
+    }
+
+    render();
+  </script>
+</body>
+</html>
